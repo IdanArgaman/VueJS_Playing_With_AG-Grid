@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import Vue from "vue";
 import Vuex from "vuex";
 
@@ -30,8 +29,7 @@ const sets = [
         model: 'Turiq',
         price: 1000
     }],
-]
-
+];
 
 export default new Vuex.Store({
     strict: true,
@@ -39,53 +37,56 @@ export default new Vuex.Store({
         failDemoCount: 0,
         count: 0,
         cars: [{
+                id: 1,
                 make: {
                     value: 'Toyota',
-                    serverValue: null,
+                    serverValue: 'Toyota',
                     isUpdating: false
                 },
                 model: {
                     value: 'Celica',
-                    serverValue: null,
+                    serverValue: 'Celica',
                     isUpdating: false
                 },
                 price: {
                     value: 3500,
-                    serverValue: null,
+                    serverValue: 3500,
                     isUpdating: false
                 },
             },
             {
+                id: 2,
                 make: {
                     value: 'Ford',
-                    serverValue: null,
+                    serverValue: 'Ford',
                     isUpdating: false
                 },
                 model: {
                     value: 'Mondeo',
-                    serverValue: null,
+                    serverValue: 'Mondeo',
                     isUpdating: false
                 },
                 price: {
                     value: 3200,
-                    serverValue: null,
+                    serverValue: 3200,
                     isUpdating: false
                 }
             },
             {
+                id: 3,
                 make: {
                     value: 'Porcshe',
-                    serverValue: null,
+                    serverValue: 'Porcshe',
                     isUpdating: false
                 },
                 model: {
                     value: 'Boxter',
-                    serverValue: null,
+                    serverValue: 'Boxter',
                     isUpdating: false
                 },
                 price: {
                     value: 72000,
-                    serverValue: null,
+                    serverValue: 72000,
                     isUpdating: false
                 }
             }
@@ -99,47 +100,71 @@ export default new Vuex.Store({
             state.count++;
             state.cars = sets[state.count % 2];
         },
-        changeSingle(state, payload) {
-            // The newCars array will hold 2 already reactive elements and a single new non reactive element 
-            // const newCars = [
-            //     ...state.cars.filter((element, idx) => idx !== payload.idx),
-            //     payload.data
-            // ];
+        changeSingle(state, patchItemData) {
 
-            // Setting newCars array to state.cars, changes the newCars array and makes all of its
-            // contained elements to be reactive!
-            // state.cars = newCars;
+            const idx = state.cars.findIndex(car => car.id === patchItemData.id);
 
-            Vue.set(state.cars, payload.idx, payload.data)
+            // Method 1: construct a row object and update it
+            // Error: erases other fields
+            // const d = {
+            //     // Copy whole object
+            //     ...state.cars[idx],
+            //     ...{
+            //         // The sub object we interest to update
+            //         [patchItemData.key]: {
+            //             // the current sub-object values
+            //             ...state.cars[idx][patchItemData.key],
+            //             // new sub object values
+            //             ...patchItemData.data
+            //         }
+            //     }
+            // };
 
-        },
+            // Use set to trigger reactivity
+            // Vue.set(state.cars, idx, d);
+
+            // Method 2: doesn't triggers reactivity althoud 
+            // we update a sub object
+            // state.cars[idx][patchItemData.key] = {
+            //     // the current sub-object values
+            //     ...state.cars[idx][patchItemData.key],
+            //     // new sub object values
+            //     ...patchItemData.data
+            // };
+
+            // Method 3: updates each field on the specific row and the specific sub object
+            // Works, and tirggers reactivity and doesn't change other fields
+            Object.keys(patchItemData.data).forEach(key => {
+                // idx -> the row to update
+                // patchItemData.key -> the sub object to update
+                // key -> the property in the subobject to update
+                state.cars[idx][patchItemData.key][key] = patchItemData.data[key];
+            });
+        }
     },
 
     actions: {
         patchItem({
             state,
             commit
-        }, payload) {
+        }, patchItemData) {
 
-            const idx = state.cars.findIndex(item => item === payload.item);
-            const originalItem = state.cars[idx];
+            //////////////////////////////////////////////////////////////
+            // PatchItemData contains:                                  //                                                   
+            //  object id to update (equal to row)                      //
+            //  property to update (equals to subobject in the row)     //
+            //  and value to set in that sub object                     // 
+            //                                                          //
+            //  example:                                                //
+            //  {id, key, data: { value: } }                            //
+            //////////////////////////////////////////////////////////////
 
-            let data = {};
-            Object.keys(payload.patchItem).forEach(key => {
-                data[key] = {
-                    ...originalItem[key],
-                    ...{
-                        ...payload.patchItem[key],
-                        isUpdating: true
-                    }
-                }
-            });
-
+            // Pay attention not to mutate "patchItemData"   
             commit('changeSingle', {
-                idx,
+                ...patchItemData,
                 data: {
-                    ...originalItem,
-                    ...data
+                    value: patchItemData.data.value,
+                    isUpdating: true
                 }
             });
 
@@ -148,39 +173,33 @@ export default new Vuex.Store({
                 commit('updateFailDemoCount');
 
                 if (state.failDemoCount % 2) {
-                    data = {};
-                    Object.keys(payload.patchItem).forEach(key => {
-                        const newData = {
-                            ...payload.patchItem[key],
-                            isUpdating: false,
-                            serverValue: payload.patchItem[key].value
-                        };
 
-                        data[key] = {
-                            ...originalItem[key],
-                            ...newData
-                        };
-                    })
-
+                    // Update server values
                     commit('changeSingle', {
-                        idx,
+                        ...patchItemData,
                         data: {
-                            ...originalItem,
-                            ...data
+                            isUpdating: false,
+                            serverValue: patchItemData.data.value
                         }
                     });
 
-
                 } else {
+
+                    // Restore server values
+                    const item = state.cars.find(car => car.id === patchItemData.id);
+
                     commit('changeSingle', {
-                        idx,
-                        data: originalItem
+                        ...patchItemData,
+                        data: {
+                            value: item[patchItemData.key].serverValue,
+                            isUpdating: false
+                        }
                     });
                 }
 
-
             }, 2500);
         },
+
         changeSingle({
             commit,
             state

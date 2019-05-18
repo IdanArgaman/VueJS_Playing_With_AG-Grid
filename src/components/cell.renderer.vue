@@ -21,11 +21,10 @@ export default Vue.extend({
   beforeCreate() {
     this.debounce = _.debounce(event => {
       this.$store.dispatch("patchItem", {
-        item: this.params.data,
-        patchItem: {
-          [this.params.colDef.field]: {
-            value: event.target.value
-          }
+        id: this.params.data.id,
+        key: this.params.colDef.field,
+        data: {
+          value: event.target.value
         }
       });
     }, 1000);

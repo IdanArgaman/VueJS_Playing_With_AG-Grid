@@ -58,9 +58,7 @@ export default {
       {
         headerName: "Model",
         field: "model",
-        valueGetter: params => {
-          return params.data[params.colDef.field].value;
-        }
+        cellRendererFramework: makeCellRenderer
       },
       {
         headerName: "Price",
